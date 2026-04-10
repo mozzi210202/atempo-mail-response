@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>메일 자동 응답기 - 에이템포미디어</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #1a1a1a;
+  --primary-hover: #333333;
+  --primary-light: #f5f5f5;
+  --primary-border: #d0d0d0;
+  --bg: #f8f8f8;
+  --white: #fff;
+  --text-main: #111;
+  --text-sub: #666;
+  --border: #e1e4e8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); min-height: 100vh; color: var(--text-main); line-height: 1.6; }
+
+.page-wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 80px; }
+
+.page-title { font-size: 1.5rem; font-weight: 700; color: var(--primary); border-left: 4px solid var(--primary); padding-left: 14px; margin-bottom: 16px; }
+
+.notice-box { background: #fffbe6; border: 1px solid #ffe58f; border-radius: 10px; padding: 12px 16px; font-size: 0.85rem; color: #7a6000; margin-bottom: 24px; line-height: 1.7; }
+.notice-box b { color: #d46b08; }
+
+/* 레이아웃 */
+.layout { display: grid; grid-template-columns: 190px 1fr; background: var(--white); border-radius: 14px; border: 1px solid var(--border); overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+
+/* 사이드바 */
+.sidebar { background: #fafafa; border-right: 1px solid var(--border); padding: 20px 0; }
+.sidebar-label { font-size: 11px; color: var(--text-sub); padding: 0 16px 10px; letter-spacing: 0.05em; font-weight: 500; }
+.tab-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; font-size: 13px; color: var(--text-sub); cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; user-select: none; }
+.tab-item:hover { background: var(--primary-light); color: var(--primary); }
+.tab-item.active { background: var(--primary-light); color: var(--primary); border-left-color: var(--primary); font-weight: 700; }
+.tab-item.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+.tab-num { width: 22px; height: 22px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-sub); flex-shrink: 0; font-weight: 700; transition: all 0.15s; }
+.tab-item.active .tab-num { background: var(--primary); color: #fff; }
+.tab-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+/* 메인 */
+.main-content { padding: 28px; overflow: hidden; }
+.loading-msg { text-align: center; padding: 40px; color: var(--text-sub); font-size: 13px; }
+
+/* 섹션 */
+.section { margin-bottom: 24px; }
+.section-title { font-size: 14px; font-weight: 700; color: var(--primary); border-left: 3px solid var(--primary); padding-left: 10px; margin-bottom: 14px; }
+
+/* 폼 요소 */
+.radio-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.radio-label input[type="radio"] { accent-color: var(--primary); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; color: var(--text-sub); font-weight: 500; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+input[type="text"], input[type="date"], input[type="password"], select, textarea {
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; font-family: inherit; outline: none; transition: border 0.15s;
+  background: var(--white); color: var(--text-main);
+}
+input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+input[readonly] { background: #f5f5f5; color: var(--text-sub); }
+
+/* 태그 */
+.tag-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-family: inherit; cursor: pointer; color: var(--text-sub); background: var(--white); transition: all 0.15s; user-select: none; }
+.tag:hover { border-color: var(--primary); color: var(--primary); }
+.tag.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* 관리자 입력 */
+.manager-input { width: 160px; }
+
+/* 미리보기 */
+.preview-area { background: #f9f9f9; border: 1px solid var(--primary-border); border-radius: 12px; padding: 16px 20px; min-height: 180px; }
+.preview-subject-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.preview-badge { font-size: 11px; background: var(--primary-light); color: var(--primary); padding: 3px 8px; border-radius: 6px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+.preview-subject-text { font-size: 13px; color: var(--text-sub); font-style: italic; }
+.preview-subject-text.filled { color: var(--text-main); font-style: normal; font-weight: 500; }
+.preview-body { font-size: 13px; color: var(--text-sub); white-space: pre-wrap; line-height: 1.9; font-style: italic; }
+.preview-body.filled { color: var(--text-main); font-style: normal; }
+
+/* 버튼 */
+.btn-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; border-radius: 50px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.15s; border: 1px solid var(--border); background: var(--white); color: var(--text-main); }
+.btn:hover { background: #f5f5f5; }
+.btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn.primary:hover { background: var(--primary-hover); }
+.btn.full { width: 100%; justify-content: center; border-radius: 10px; padding: 13px; }
+.copied-msg { font-size: 12px; color: #52c41a; display: none; }
+
+/* 메모장 */
+.memo-area { width: 100%; min-height: 280px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; font-family: inherit; line-height: 1.9; resize: vertical; outline: none; }
+.memo-area:focus { border-color: var(--primary); }
+
+/* 캘린더 섹션 */
+.calendar-section { margin-top: 32px; padding-top: 28px; border-top: 2px dashed var(--primary-border); }
+.calendar-header { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
+.calendar-desc { font-size: 12px; color: var(--text-sub); margin-bottom: 14px; line-height: 1.7; }
+
+footer { text-align: center; margin-top: 32px; font-size: 12px; color: #bbb; }
+
+@media (max-width: 600px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  .field-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+  <h1 class="page-title">메일 자동 응답기 - 에이템포미디어</h1>
+
+  <div class="notice-box">
+    💡 <b>Gmail 붙여넣기 안내</b> — 모든 복사 버튼은 서식이 유지됩니다. Gmail 본문란에 <b>Ctrl+V</b> (Mac: ⌘+V)로 붙여넣으세요.<br>
+    본 메일 자동 응답기는 단순 문의에 대한 최신 유형을 하나의 툴로 통합해, 통일된 안내 문구를 기반으로 빠르고 효율적인 응대를 지원합니다.
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-label">메일 유형</div>
+      <div class="tab-item active" onclick="switchTab(this,'gyojunggo')">
+        <span class="tab-num">1</span> 교정고 발송 일정
+      </div>
+      <div class="tab-item" onclick="switchTab(this,'pyoji')">
+        <span class="tab-num">2</span> 표지제안서
+      </div>
+      <div class="tab-item disabled">
+        <span class="tab-num">3</span> 서지 정보 요청
+      </div>
+      <div class="tab-item disabled">
+        <span class="tab-num">4</span> 계약 조건 안내
+      </div>
+      <div class="tab-item disabled">
+        <span class="tab-num">5</span> 원고 전달 요청
+      </div>
+      <hr class="tab-divider">
+      <div class="tab-item" onclick="switchTab(this,'memo')">
+        <span class="tab-num" style="font-size:10px;">✎</span> 메일 수정 (메모장)
+      </div>
+    </div>
+
+    <div class="main-content" id="mainContent">
+      <div class="loading-msg">데이터 불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 설정 =====
+const SHEET_ID = '1mOE_t67zETmI9k4nv2Ks6I54jG97ZemlaROVEM0KuvM';
+const TEMPLATES_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Templates`;
+const OPTIONS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Options`;
+
+// ===== 상태 =====
+let templates = {};
+let options = { label: [], workType: [] };
+let selectedLabels = [];
+let selectedWorkTypes = [];
+let currentTab = 'gyojunggo';
+
+// ===== 데이터 로드 =====
+async function loadData() {
+  try {
+    const [resTpl, resOpt] = await Promise.all([
+      fetch(TEMPLATES_URL + '&t=' + Date.now()),
+      fetch(OPTIONS_URL + '&t=' + Date.now())
+    ]);
+    const tplText = await resTpl.text();
+    const optText = await resOpt.text();
+    const tplJson = JSON.parse(tplText.substring(tplText.indexOf('(') + 1, tplText.lastIndexOf(')')));
+    const optJson = JSON.parse(optText.substring(optText.indexOf('(') + 1, optText.lastIndexOf(')')));
+
+    tplJson.table.rows.slice(1).forEach(row => {
+      if (!row.c?.[0]?.v) return;
+      const key = row.c[0].v.toString().trim();
+      templates[key] = {
+        title: row.c[1]?.v || '',
+        body: (row.c[2]?.v || '').replace(/\\n/g, '\n')
+      };
+    });
+
+    optJson.table.rows.slice(1).forEach(row => {
+      if (!row.c?.[0]?.v) return;
+      const key = row.c[0].v.toString().trim();
+      const val = row.c[1]?.v?.toString().trim();
+      if (val && options[key] !== undefined) options[key].push(val);
+    });
+
+    renderTab(currentTab);
+  } catch(e) {
+    document.getElementById('mainContent').innerHTML =
+      `<div class="loading-msg" style="color:#e53e3e;">데이터 로딩 실패.<br>구글 시트 공유 설정을 확인해 주세요.</div>`;
+  }
+}
+
+// ===== 탭 전환 =====
+function switchTab(el, tabId) {
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentTab = tabId;
+  selectedLabels = [];
+  selectedWorkTypes = [];
+  renderTab(tabId);
+}
+
+function renderTab(tabId) {
+  if (tabId === 'memo') { renderMemo(); return; }
+  if (tabId === 'gyojunggo') renderGyojunggo();
+  if (tabId === 'pyoji') renderPyoji();
+}
+
+// ===== 메모장 =====
+function renderMemo() {
+  document.getElementById('mainContent').innerHTML = `
+    <div class="section">
+      <div class="section-title">메모장 (직접 수정)</div>
+      <textarea class="memo-area" id="memoArea" placeholder="메일 내용을 직접 입력하거나 붙여넣어 수정하세요."></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="copyMemo()">📋 본문 복사</button>
+      <span class="copied-msg" id="copiedMemo"></span>
+    </div>`;
+}
+
+// ===== 교정고 탭 렌더링 =====
+function renderGyojunggo() {
+  const labelTags = options.label.map(l =>
+    `<span class="tag" onclick="toggleLabel(this,'${l}')">${l}</span>`).join('');
+  const workTypeTags = options.workType.map(w =>
+    `<span class="tag" onclick="toggleWorkType(this,'${w}')">${w}</span>`).join('');
+
+  document.getElementById('mainContent').innerHTML = `
+    <!-- 담당자 -->
+    <div class="section">
+      <div class="section-title">담당자명 설정</div>
+      <div class="radio-row">
+        <label class="radio-label"><input type="radio" name="mgr" value="none" checked onchange="updatePreview()"> 없음</label>
+        <label class="radio-label"><input type="radio" name="mgr" value="direct" onchange="updatePreview()"> 직접 입력</label>
+        <input type="text" class="manager-input" id="mgrName" placeholder="담당자명" oninput="updatePreview()">
+      </div>
+    </div>
+
+    <!-- 입력 -->
+    <div class="section">
+      <div class="section-title">입력</div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>레이블</label>
+        <div class="tag-group" id="labelGroup">${labelTags}</div>
+      </div>
+      <div class="field-row" style="margin-bottom:14px;">
+        <div class="field">
+          <label>작품명</label>
+          <input type="text" id="workTitle" placeholder="작품명 입력" oninput="updatePreview()">
+        </div>
+        <div class="field">
+          <label>원고 분량</label>
+          <input type="text" id="workVolume" placeholder="예) 1-50화" oninput="updatePreview()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>작업 종류 (복수 선택 가능)</label>
+          <div class="tag-group" id="workTypeGroup">${workTypeTags}</div>
+        </div>
+        <div class="field">
+          <label>예정 일정</label>
+          <input type="date" id="schedDate" onchange="updatePreview()" onclick="try{this.showPicker()}catch(e){}">
+        </div>
+      </div>
+    </div>
+
+    <!-- 메일 미리보기 -->
+    <div class="section">
+      <div class="section-title">완성된 메일 미리보기</div>
+      <div class="preview-area">
+        <div class="preview-subject-row">
+          <span class="preview-badge">제목</span>
+          <span class="preview-subject-text" id="previewSubject">입력값을 채우면 자동 생성됩니다</span>
+        </div>
+        <div class="preview-body" id="previewBody">위 항목을 입력해 주세요.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" onclick="copyBody()">📋 본문 복사</button>
+        <button class="btn" onclick="copyAll()">📎 제목+본문 복사</button>
+        <span class="copied-msg" id="copiedMsg">복사됐어요!</span>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:#b45309;background:#fff8e1;border:1px solid #ffe58f;border-radius:8px;padding:8px 14px;">⚠️ 첨부 파일을 잊지 마세요!</div>
+    </div>
+
+    <!-- 캘린더 -->
+    <div class="calendar-section">
+      <div class="calendar-header">📅 잠깐! 캘린더에 일정 추가했나요?</div>
+      <div class="calendar-desc">버튼을 누르면 .ics 파일이 다운로드됩니다. 파일을 열면 Windows / Outlook / 구글 캘린더에 자동 등록돼요.</div>
+      <button class="btn primary full" onclick="downloadICS()">📅 캘린더에 일정 추가</button>
+    </div>`;
+
+  updatePreview();
+}
+
+// ===== 태그 선택 =====
+function toggleLabel(el, val) {
+  document.querySelectorAll('#labelGroup .tag').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedLabels = [val];
+  updatePreview();
+}
+
+function toggleWorkType(el, val) {
+  if (el.classList.contains('selected')) {
+    el.classList.remove('selected');
+    selectedWorkTypes = selectedWorkTypes.filter(v => v !== val);
+  } else {
+    el.classList.add('selected');
+    selectedWorkTypes.push(val);
+  }
+  updatePreview();
+}
+
+// ===== 미리보기 업데이트 =====
+function getManager() {
+  const radio = document.querySelector('input[name="mgr"]:checked');
+  if (!radio || radio.value === 'none') return '';
+  return document.getElementById('mgrName')?.value.trim() || '';
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '{일정}';
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+function joinWorkTypes(arr) {
+  if (!arr.length) return '{작업종류}';
+  if (arr.length === 1) return arr[0];
+  return arr.slice(0, -1).join(', ') + ' 및 ' + arr[arr.length - 1];
+}
+
+function updatePreview() {
+  const tpl = templates['교정고'];
+  if (!tpl) return;
+
+  const label = selectedLabels[0] || '';
+  const workTitle = document.getElementById('workTitle')?.value.trim() || '';
+  const workVolume = document.getElementById('workVolume')?.value.trim() || '';
+  const dateVal = document.getElementById('schedDate')?.value || '';
+  const manager = getManager();
+  const workTypeStr = joinWorkTypes(selectedWorkTypes);
+
+  // 제목
+  const labelBracket = label ? `[${label}]` : '[레이블]';
+  const titlePart = workTitle ? `<${workTitle}>` : '<작품명>';
+  const volPart = workVolume || '{분량}';
+  const subject = `${labelBracket} ${titlePart} ${volPart} 교정고 송부 일정 안내드립니다.`;
+
+  // 본문 치환
+  const managerLine = manager ? `${label || '{레이블}'} ${manager}입니다.` : `${label || '{레이블}'}입니다.`;
+  const signLine = manager ? `- ${label || '{레이블}'} ${manager} 드림.` : `- ${label || '{레이블}'} 드림.`;
+
+  let body = tpl.body
+    .replace(/\{레이블\} \{담당자\}입니다\./g, managerLine)
+    .replace(/\[\{레이블\}\] \{담당자\} 드림\./g, signLine)
+    .replace(/\[\{레이블\}\]/g, label || '{레이블}')
+    .replace(/\{레이블\}/g, label || '{레이블}')
+    .replace(/\{작품명\}/g, workTitle || '{작품명}')
+    .replace(/\{분량\}/g, workVolume || '{분량}')
+    .replace(/\{일정\}/g, formatDate(dateVal))
+    .replace(/\{작업종류\}/g, workTypeStr)
+    .replace(/\{담당자\}/g, manager || '');
+
+  const subjEl = document.getElementById('previewSubject');
+  const bodyEl = document.getElementById('previewBody');
+  if (!subjEl || !bodyEl) return;
+  subjEl.textContent = subject;
+  subjEl.className = 'preview-subject-text filled';
+  bodyEl.textContent = body;
+  bodyEl.className = 'preview-body filled';
+}
+
+// ===== 복사 =====
+function showCopied(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'inline';
+  setTimeout(() => { el.style.display = 'none'; }, 2000);
+}
+function copyBody() {
+  const body = document.getElementById('previewBody')?.textContent;
+  if (body) navigator.clipboard.writeText(body).then(() => showCopied('copiedMsg'));
+}
+function copyAll() {
+  const subj = document.getElementById('previewSubject')?.textContent;
+  const body = document.getElementById('previewBody')?.textContent;
+  if (subj && body) navigator.clipboard.writeText(`제목: ${subj}\n\n${body}`).then(() => showCopied('copiedMsg'));
+}
+function copyMemo() {
+  const val = document.getElementById('memoArea')?.value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => {
+    const el = document.getElementById('copiedMemo');
+    if (el) { el.textContent = '복사됐어요!'; el.style.display = 'inline'; setTimeout(() => { el.style.display = 'none'; }, 2000); }
+  });
+}
+
+// ===== 표지제안서 탭 =====
+function renderPyoji() {
+  const labelTags = options.label.map(l =>
+    `<span class="tag" onclick="toggleLabelP(this,'${l}')">${l}</span>`).join('');
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="section">
+      <div class="section-title">담당자명 설정</div>
+      <div class="radio-row">
+        <label class="radio-label"><input type="radio" name="mgrP" value="none" checked onchange="updatePreviewP()"> 없음</label>
+        <label class="radio-label"><input type="radio" name="mgrP" value="direct" onchange="updatePreviewP()"> 직접 입력</label>
+        <input type="text" class="manager-input" id="mgrNameP" placeholder="담당자명" oninput="updatePreviewP()">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">입력</div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>레이블</label>
+        <div class="tag-group" id="labelGroupP">${labelTags}</div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>작품명</label>
+          <input type="text" id="workTitleP" placeholder="작품명 입력" oninput="updatePreviewP()">
+        </div>
+        <div class="field">
+          <label>회신 요청일</label>
+          <input type="date" id="replyDateP" onchange="updatePreviewP()" onclick="try{this.showPicker()}catch(e){}">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">완성된 메일 미리보기</div>
+      <div class="preview-area">
+        <div class="preview-subject-row">
+          <span class="preview-badge">제목</span>
+          <span class="preview-subject-text" id="previewSubjectP">입력값을 채우면 자동 생성됩니다</span>
+        </div>
+        <div class="preview-body" id="previewBodyP">위 항목을 입력해 주세요.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" onclick="copyBodyP()">📋 본문 복사</button>
+        <button class="btn" onclick="copyAllP()">📎 제목+본문 복사</button>
+        <span class="copied-msg" id="copiedMsgP">복사됐어요!</span>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:#b45309;background:#fff8e1;border:1px solid #ffe58f;border-radius:8px;padding:8px 14px;">⚠️ 첨부 파일을 잊지 마세요!</div>
+    </div>
+
+    <!-- 캘린더 -->
+    <div class="calendar-section">
+      <div class="calendar-header">📅 잠깐! 캘린더에 일정 추가했나요?</div>
+      <div class="calendar-desc">버튼을 누르면 .ics 파일이 다운로드됩니다. 파일을 열면 Windows / Outlook / 구글 캘린더에 자동 등록돼요.</div>
+      <button class="btn primary full" onclick="downloadICS()">📅 캘린더에 일정 추가</button>
+    </div>`;
+
+  updatePreviewP();
+}
+
+// ===== 표지제안서 상태 =====
+let selectedLabelsP = [];
+
+function toggleLabelP(el, val) {
+  document.querySelectorAll('#labelGroupP .tag').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedLabelsP = [val];
+  updatePreviewP();
+}
+
+function getManagerP() {
+  const radio = document.querySelector('input[name="mgrP"]:checked');
+  if (!radio || radio.value === 'none') return '';
+  return document.getElementById('mgrNameP')?.value.trim() || '';
+}
+
+function formatDateP(dateStr) {
+  if (!dateStr) return '{회신 요청일}';
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+function updatePreviewP() {
+  const tpl = templates['표지제안서'];
+  if (!tpl) return;
+
+  const label = selectedLabelsP[0] || '';
+  const workTitle = document.getElementById('workTitleP')?.value.trim() || '';
+  const replyDate = document.getElementById('replyDateP')?.value || '';
+  const manager = getManagerP();
+
+  const labelBracket = label ? `[${label}]` : '[레이블]';
+  const titlePart = workTitle ? `<${workTitle}>` : '<작품명>';
+  const subject = `${labelBracket} ${titlePart} 표지제안서 전달드립니다.`;
+
+  const managerLine = manager ? `${label || '{레이블}'} ${manager}입니다.` : `${label || '{레이블}'}입니다.`;
+  const signLine = manager ? `- ${label || '{레이블}'} ${manager} 드림.` : `- ${label || '{레이블}'} 드림.`;
+
+  let body = tpl.body
+    .replace(/\{레이블\} \{담당자\}입니다\./g, managerLine)
+    .replace(/- \{레이블\} \{담당자\} 드림\./g, signLine)
+    .replace(/\{레이블\}/g, label || '{레이블}')
+    .replace(/\{작품명\}/g, workTitle || '{작품명}')
+    .replace(/\{회신요청일\}/g, formatDateP(replyDate))
+    .replace(/\{담당자\}/g, manager || '');
+
+  const subjEl = document.getElementById('previewSubjectP');
+  const bodyEl = document.getElementById('previewBodyP');
+  if (!subjEl || !bodyEl) return;
+  subjEl.textContent = subject;
+  subjEl.className = 'preview-subject-text filled';
+  bodyEl.textContent = body;
+  bodyEl.className = 'preview-body filled';
+}
+
+function copyBodyP() {
+  const body = document.getElementById('previewBodyP')?.textContent;
+  if (body) navigator.clipboard.writeText(body).then(() => {
+    const el = document.getElementById('copiedMsgP');
+    if (el) { el.style.display = 'inline'; setTimeout(() => { el.style.display = 'none'; }, 2000); }
+  });
+}
+
+function copyAllP() {
+  const subj = document.getElementById('previewSubjectP')?.textContent;
+  const body = document.getElementById('previewBodyP')?.textContent;
+  if (subj && body) navigator.clipboard.writeText(`제목: ${subj}\n\n${body}`).then(() => {
+    const el = document.getElementById('copiedMsgP');
+    if (el) { el.style.display = 'inline'; setTimeout(() => { el.style.display = 'none'; }, 2000); }
+  });
+}
+
+// ===== 캘린더(.ics) =====
+function generateICS(title, dateStr, description) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  const pad = n => String(n).padStart(2, '0');
+  const dateStamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const uid = `${Date.now()}@atempo-mail-response`;
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//에이템포미디어//메일 자동 응답기//KO',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${dateStamp}T000000Z`,
+    `DTSTART;VALUE=DATE:${dateStamp}`,
+    `DTEND;VALUE=DATE:${dateStamp}`,
+    `SUMMARY:${title}`,
+    `DESCRIPTION:${description}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+}
+
+function triggerDownload(content, filename) {
+  const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadICS() {
+  if (currentTab === 'gyojunggo') {
+    const subj = document.getElementById('previewSubject')?.textContent;
+    const dateVal = document.getElementById('schedDate')?.value;
+    if (!dateVal) { alert('예정 일정을 먼저 입력해 주세요.'); return; }
+    const ics = generateICS(subj, dateVal, '메일 자동 응답기에서 생성된 일정');
+    if (ics) triggerDownload(ics, '일정.ics');
+  } else if (currentTab === 'pyoji') {
+    const subj = document.getElementById('previewSubjectP')?.textContent;
+    const dateVal = document.getElementById('replyDateP')?.value;
+    if (!dateVal) { alert('회신 요청일을 먼저 입력해 주세요.'); return; }
+    const ics = generateICS(subj, dateVal, '메일 자동 응답기에서 생성된 일정');
+    if (ics) triggerDownload(ics, '일정.ics');
+  }
+}
+
+// ===== 초기화 =====
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
